@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NJU Vocab Filter - 管理面板</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --border: #334155;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    h1 span { color: var(--accent); }
+
+    .login-form {
+      max-width: 400px;
+      margin: 80px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
+
+    .login-form h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      color: var(--accent);
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: var(--accent); }
+
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .stat-card .label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section h3 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+
+    .word-form {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .word-form input { flex: 1; min-width: 150px; }
+
+    .word-list { list-style: none; }
+    .word-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .word-list li:last-child { border-bottom: none; }
+    .word-list .word-text { font-weight: 500; }
+    .word-list .word-meaning { color: var(--text-muted); font-size: 0.9rem; }
+
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 640px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .word-form { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div id="login-view" class="login-form">
+      <h2>NJU Vocab Filter</h2>
+      <div id="login-error" class="error"></div>
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="username" placeholder="输入用户名">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="输入密码">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="login()">登录</button>
+    </div>
+
+    <div id="dashboard-view" class="hidden">
+      <header>
+        <h1><span>NJU Vocab</span> 管理面板</h1>
+        <button class="btn btn-sm" onclick="logout()">退出</button>
+      </header>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="value" id="stat-users">-</div>
+          <div class="label">注册用户</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="stat-logins-today">-</div>
+          <div class="label">今日登录次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="stat-unique-today">-</div>
+          <div class="label">今日登录人数</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="stat-words">-</div>
+          <div class="label">词库总量</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="stat-reviews-today">-</div>
+          <div class="label">今日复习次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="value" id="stat-due">-</div>
+          <div class="label">待复习词数</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>添加单词</h3>
+        <div class="word-form">
+          <input type="text" id="new-word" placeholder="单词">
+          <input type="text" id="new-meaning" placeholder="释义">
+          <button class="btn btn-primary" onclick="addWord()">添加</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>词库列表</h3>
+        <ul class="word-list" id="word-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = localStorage.getItem("token");
+
+    async function api(path, options = {}) {
+      const res = await fetch(API + path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...options.headers,
+        },
+      });
+      if (res.status === 401) { logout(); throw new Error("未授权"); }
+      return res;
+    }
+
+    async function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const errEl = document.getElementById("login-error");
+
+      try {
+        const res = await fetch(API + "/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          errEl.textContent = data.detail || "登录失败";
+          errEl.style.display = "block";
+          return;
+        }
+        const data = await res.json();
+        token = data.access_token;
+        localStorage.setItem("token", token);
+        showDashboard();
+      } catch (e) {
+        errEl.textContent = "网络错误";
+        errEl.style.display = "block";
+      }
+    }
+
+    function logout() {
+      token = null;
+      localStorage.removeItem("token");
+      document.getElementById("login-view").classList.remove("hidden");
+      document.getElementById("dashboard-view").classList.add("hidden");
+    }
+
+    async function showDashboard() {
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("dashboard-view").classList.remove("hidden");
+      await loadStats();
+      await loadWords();
+    }
+
+    async function loadStats() {
+      try {
+        const res = await api("/stats");
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("stat-users").textContent = data.total_users;
+          document.getElementById("stat-logins-today").textContent = data.total_logins_today;
+          document.getElementById("stat-unique-today").textContent = data.unique_logins_today;
+          document.getElementById("stat-words").textContent = data.total_words;
+          document.getElementById("stat-reviews-today").textContent = data.total_reviews_today;
+          document.getElementById("stat-due").textContent = data.words_due_today;
+        }
+      } catch (e) {}
+    }
+
+    async function loadWords() {
+      try {
+        const res = await api("/words");
+        if (res.ok) {
+          const words = await res.json();
+          const list = document.getElementById("word-list");
+          list.innerHTML = words.map(w =>
+            `<li><span class="word-text">${w.word}</span><span class="word-meaning">${w.meaning}</span></li>`
+          ).join("");
+        }
+      } catch (e) {}
+    }
+
+    async function addWord() {
+      const word = document.getElementById("new-word").value.trim();
+      const meaning = document.getElementById("new-meaning").value.trim();
+      if (!word || !meaning) return;
+
+      const res = await api("/words", {
+        method: "POST",
+        body: JSON.stringify({ word, meaning }),
+      });
+      if (res.ok) {
+        document.getElementById("new-word").value = "";
+        document.getElementById("new-meaning").value = "";
+        await loadWords();
+        await loadStats();
+      }
+    }
+
+    if (token) {
+      showDashboard();
+    }
+  </script>
+
+</body>
+</html>
