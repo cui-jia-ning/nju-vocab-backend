@@ -113,6 +113,28 @@ def list_words(db: Session = Depends(get_db)):
     return db.query(Word).all()
 
 
+@app.post("/words/batch")
+def add_words_batch(data: List[WordCreate], db: Session = Depends(get_db)):
+    added = 0
+    for item in data:
+        if not db.query(Word).filter(Word.word == item.word).first():
+            db.add(Word(word=item.word, meaning=item.meaning))
+            added += 1
+    db.commit()
+    return {"added": added}
+
+
+@app.delete("/words/{word_text}")
+def delete_word(word_text: str, db: Session = Depends(get_db)):
+    word = db.query(Word).filter(Word.word == word_text).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="单词不存在")
+    db.query(WordProgress).filter(WordProgress.word_id == word.id).delete()
+    db.delete(word)
+    db.commit()
+    return {"status": "ok"}
+
+
 @app.get("/review/today", response_model=List[ReviewItem])
 def get_today_review(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     today = date.today()
