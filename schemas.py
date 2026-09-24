@@ -18,6 +18,7 @@ class UserResponse(BaseModel):
     username: str
     created_at: datetime
     last_login: Optional[datetime]
+    is_admin: bool = False
 
     class Config:
         from_attributes = True
@@ -31,12 +32,28 @@ class Token(BaseModel):
 class WordCreate(BaseModel):
     word: str
     meaning: str
+    level: Optional[str] = None  # A, B, C
+    phonetic: Optional[str] = None
+    example: Optional[str] = None
+    example_zh: Optional[str] = None
+
+
+class WordUpdate(BaseModel):
+    meaning: Optional[str] = None
+    level: Optional[str] = None
+    phonetic: Optional[str] = None
+    example: Optional[str] = None
+    example_zh: Optional[str] = None
 
 
 class WordResponse(BaseModel):
     id: int
     word: str
     meaning: str
+    level: Optional[str] = None
+    phonetic: Optional[str] = None
+    example: Optional[str] = None
+    example_zh: Optional[str] = None
 
     class Config:
         from_attributes = True

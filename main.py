@@ -7,14 +7,14 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, date
-from typing import List
+from typing import List, Optional
 
 from config import settings
 from database import engine, get_db, Base
 from models import User, Word, WordProgress, LoginLog
 from schemas import (
     UserCreate, UserLogin, UserResponse, Token,
-    WordCreate, WordResponse, ReviewItem, StatsResponse,
+    WordCreate, WordUpdate, WordResponse, ReviewItem, StatsResponse,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -64,6 +64,12 @@ def get_current_user(
     return user
 
 
+def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="仅管理员可访问")
+    return user
+
+
 @app.post("/register", response_model=UserResponse)
 def register(data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == data.username).first():
@@ -101,7 +107,14 @@ def get_me(user: User = Depends(get_current_user)):
 def add_word(data: WordCreate, db: Session = Depends(get_db)):
     if db.query(Word).filter(Word.word == data.word).first():
         raise HTTPException(status_code=400, detail="单词已存在")
-    word = Word(word=data.word, meaning=data.meaning)
+    word = Word(
+        word=data.word,
+        meaning=data.meaning,
+        level=data.level,
+        phonetic=data.phonetic,
+        example=data.example,
+        example_zh=data.example_zh,
+    )
     db.add(word)
     db.commit()
     db.refresh(word)
@@ -118,7 +131,16 @@ def add_words_batch(data: List[WordCreate], db: Session = Depends(get_db)):
     added = 0
     for item in data:
         if not db.query(Word).filter(Word.word == item.word).first():
-            db.add(Word(word=item.word, meaning=item.meaning))
+            db.add(
+                Word(
+                    word=item.word,
+                    meaning=item.meaning,
+                    level=item.level,
+                    phonetic=item.phonetic,
+                    example=item.example,
+                    example_zh=item.example_zh,
+                )
+            )
             added += 1
     db.commit()
     return {"added": added}
@@ -133,6 +155,118 @@ def delete_word(word_text: str, db: Session = Depends(get_db)):
     db.delete(word)
     db.commit()
     return {"status": "ok"}
+
+
+# ================= 教师管理 API =================
+
+
+@app.get("/admin/words", response_model=List[WordResponse])
+def admin_list_words(
+    skip: int = 0,
+    limit: int = 100,
+    level: Optional[str] = None,
+    search: Optional[str] = None,
+    user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Word)
+    if level:
+        query = query.filter(Word.level == level)
+    if search:
+        query = query.filter(Word.word.contains(search) | Word.meaning.contains(search))
+    return query.offset(skip).limit(limit).all()
+
+
+@app.get("/admin/words/{word_id}", response_model=WordResponse)
+def admin_get_word(word_id: int, user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    word = db.query(Word).filter(Word.id == word_id).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="单词不存在")
+    return word
+
+
+@app.put("/admin/words/{word_id}", response_model=WordResponse)
+def admin_update_word(
+    word_id: int,
+    data: WordUpdate,
+    user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    word = db.query(Word).filter(Word.id == word_id).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="单词不存在")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(word, field, value)
+
+    db.commit()
+    db.refresh(word)
+    return word
+
+
+@app.delete("/admin/words/{word_id}")
+def admin_delete_word(word_id: int, user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    word = db.query(Word).filter(Word.id == word_id).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="单词不存在")
+    db.query(WordProgress).filter(WordProgress.word_id == word.id).delete()
+    db.delete(word)
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/admin/words/batch-update")
+def admin_batch_update(
+    updates: List[dict],
+    user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    updated = 0
+    for item in updates:
+        word_id = item.get("id")
+        if not word_id:
+            continue
+        word = db.query(Word).filter(Word.id == word_id).first()
+        if not word:
+            continue
+        for field, value in item.items():
+            if field != "id" and hasattr(word, field):
+                setattr(word, field, value)
+        updated += 1
+    db.commit()
+    return {"updated": updated}
+
+
+@app.get("/admin/stats", response_model=StatsResponse)
+def admin_get_stats(user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    today = date.today()
+
+    total_users = db.query(User).count()
+    total_logins_today = db.query(LoginLog).filter(LoginLog.login_date == today).count()
+    unique_logins_today = (
+        db.query(LoginLog.user_id).filter(LoginLog.login_date == today).distinct().count()
+    )
+    total_words = db.query(Word).count()
+    total_reviews_today = (
+        db.query(WordProgress)
+        .filter(WordProgress.last_reviewed_at >= datetime.combine(today, datetime.min.time()))
+        .count()
+    )
+    words_due_today = (
+        db.query(WordProgress)
+        .filter(WordProgress.next_review_date <= today, WordProgress.mastered == False)
+        .count()
+    )
+
+    return StatsResponse(
+        total_users=total_users,
+        total_logins_today=total_logins_today,
+        unique_logins_today=unique_logins_today,
+        total_words=total_words,
+        total_reviews_today=total_reviews_today,
+        words_due_today=words_due_today,
+    )
 
 
 @app.get("/review/today", response_model=List[ReviewItem])
@@ -192,40 +326,6 @@ def submit_review(word_id: int, user: User = Depends(get_current_user), db: Sess
 
     db.commit()
     return {"status": "ok", "next_review": progress.next_review_date.isoformat()}
-
-
-@app.get("/stats", response_model=StatsResponse)
-def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="仅管理员可访问")
-
-    today = date.today()
-
-    total_users = db.query(User).count()
-    total_logins_today = db.query(LoginLog).filter(LoginLog.login_date == today).count()
-    unique_logins_today = (
-        db.query(LoginLog.user_id).filter(LoginLog.login_date == today).distinct().count()
-    )
-    total_words = db.query(Word).count()
-    total_reviews_today = (
-        db.query(WordProgress)
-        .filter(WordProgress.last_reviewed_at >= datetime.combine(today, datetime.min.time()))
-        .count()
-    )
-    words_due_today = (
-        db.query(WordProgress)
-        .filter(WordProgress.next_review_date <= today, WordProgress.mastered == False)
-        .count()
-    )
-
-    return StatsResponse(
-        total_users=total_users,
-        total_logins_today=total_logins_today,
-        unique_logins_today=unique_logins_today,
-        total_words=total_words,
-        total_reviews_today=total_reviews_today,
-        words_due_today=words_due_today,
-    )
 
 
 @app.get("/health")

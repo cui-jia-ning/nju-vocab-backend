@@ -25,6 +25,10 @@ class Word(Base):
     id = Column(Integer, primary_key=True, index=True)
     word = Column(String(100), unique=True, index=True)
     meaning = Column(String(500))
+    level = Column(String(10), nullable=True)  # A, B, C
+    phonetic = Column(String(100), nullable=True)
+    example = Column(String(500), nullable=True)
+    example_zh = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
