@@ -94,7 +94,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-    now = datetime.utcnow()
+    now = datetime.now()
     user.last_login = now
     user.last_login_date = now.date()
 
@@ -366,7 +366,7 @@ def submit_review(word_id: int, user: User = Depends(get_current_user), db: Sess
         db.add(progress)
 
     progress.review_count += 1
-    progress.last_reviewed_at = datetime.utcnow()
+    progress.last_reviewed_at = datetime.now()
 
     idx = min(progress.review_count - 1, len(EBBINGHAUS_INTERVALS) - 1)
     progress.next_review_date = date.today() + timedelta(days=EBBINGHAUS_INTERVALS[idx])
