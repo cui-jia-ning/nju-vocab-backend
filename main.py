@@ -104,55 +104,69 @@ def get_me(user: User = Depends(get_current_user)):
 
 
 @app.post("/words", response_model=WordResponse)
-def add_word(data: WordCreate, db: Session = Depends(get_db)):
-    if db.query(Word).filter(Word.word == data.word).first():
-        raise HTTPException(status_code=400, detail="单词已存在")
-    word = Word(
-        word=data.word,
-        meaning=data.meaning,
-        level=data.level,
-        phonetic=data.phonetic,
-        example=data.example,
-        example_zh=data.example_zh,
-    )
-    db.add(word)
+def add_word(data: WordCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    word = db.query(Word).filter(Word.word == data.word).first()
+    if not word:
+        word = Word(
+            word=data.word,
+            meaning=data.meaning,
+            level=data.level,
+            phonetic=data.phonetic,
+            example=data.example,
+            example_zh=data.example_zh,
+        )
+        db.add(word)
+        db.flush()
+    if not db.query(WordProgress).filter(WordProgress.user_id == user.id, WordProgress.word_id == word.id).first():
+        progress = WordProgress(user_id=user.id, word_id=word.id, review_count=0, next_review_date=date.today())
+        db.add(progress)
     db.commit()
     db.refresh(word)
     return word
 
 
 @app.get("/words", response_model=List[WordResponse])
-def list_words(db: Session = Depends(get_db)):
-    return db.query(Word).all()
+def list_words(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    word_ids = db.query(WordProgress.word_id).filter(WordProgress.user_id == user.id).subquery()
+    return db.query(Word).filter(Word.id.in_(word_ids)).all()
 
 
 @app.post("/words/batch")
-def add_words_batch(data: List[WordCreate], db: Session = Depends(get_db)):
+def add_words_batch(data: List[WordCreate], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     added = 0
     for item in data:
-        if not db.query(Word).filter(Word.word == item.word).first():
-            db.add(
-                Word(
-                    word=item.word,
-                    meaning=item.meaning,
-                    level=item.level,
-                    phonetic=item.phonetic,
-                    example=item.example,
-                    example_zh=item.example_zh,
-                )
+        word = db.query(Word).filter(Word.word == item.word).first()
+        if not word:
+            word = Word(
+                word=item.word,
+                meaning=item.meaning,
+                level=item.level,
+                phonetic=item.phonetic,
+                example=item.example,
+                example_zh=item.example_zh,
             )
-            added += 1
+            db.add(word)
+            db.flush()
+        if not db.query(WordProgress).filter(WordProgress.user_id == user.id, WordProgress.word_id == word.id).first():
+            db.add(WordProgress(user_id=user.id, word_id=word.id, review_count=0, next_review_date=date.today()))
+        added += 1
     db.commit()
     return {"added": added}
 
 
 @app.delete("/words/{word_text}")
-def delete_word(word_text: str, db: Session = Depends(get_db)):
+def remove_word_from_bank(word_text: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     word = db.query(Word).filter(Word.word == word_text).first()
     if not word:
         raise HTTPException(status_code=404, detail="单词不存在")
-    db.query(WordProgress).filter(WordProgress.word_id == word.id).delete()
-    db.delete(word)
+    db.query(WordProgress).filter(WordProgress.user_id == user.id, WordProgress.word_id == word.id).delete()
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.delete("/words")
+def clear_user_bank(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(WordProgress).filter(WordProgress.user_id == user.id).delete()
     db.commit()
     return {"status": "ok"}
 
