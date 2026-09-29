@@ -56,3 +56,15 @@ class LoginLog(Base):
     login_date = Column(Date)
 
     user = relationship("User", back_populates="login_logs")
+
+
+class AppRating(Base):
+    __tablename__ = "app_ratings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    score = Column(Integer)
+    comment = Column(String(500), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")

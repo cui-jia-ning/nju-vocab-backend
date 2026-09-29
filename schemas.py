@@ -74,3 +74,20 @@ class StatsResponse(BaseModel):
     total_words: int
     total_reviews_today: int
     words_due_today: int
+
+
+class RatingCreate(BaseModel):
+    score: int
+    comment: Optional[str] = ""
+
+
+class RatingResponse(BaseModel):
+    id: int
+    user_id: int
+    username: Optional[str] = None
+    score: int
+    comment: Optional[str] = ""
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

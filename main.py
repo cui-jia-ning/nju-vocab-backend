@@ -11,10 +11,11 @@ from typing import List, Optional
 
 from config import settings
 from database import engine, get_db, Base
-from models import User, Word, WordProgress, LoginLog
+from models import User, Word, WordProgress, LoginLog, AppRating
 from schemas import (
     UserCreate, UserLogin, UserResponse, Token,
     WordCreate, WordUpdate, WordResponse, ReviewItem, StatsResponse,
+    RatingCreate, RatingResponse,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -345,6 +346,47 @@ def submit_review(word_id: int, user: User = Depends(get_current_user), db: Sess
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+# ================= 评价系统 =================
+
+
+@app.get("/rating/status")
+def get_rating_status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rated = db.query(AppRating).filter(AppRating.user_id == user.id).first() is not None
+    word_count = db.query(WordProgress).filter(WordProgress.user_id == user.id).count()
+    return {"rated": rated, "word_count": word_count}
+
+
+@app.post("/rating")
+def submit_rating(data: RatingCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if data.score < 1 or data.score > 5:
+        raise HTTPException(status_code=400, detail="评分需在 1-5 之间")
+    existing = db.query(AppRating).filter(AppRating.user_id == user.id).first()
+    if existing:
+        existing.score = data.score
+        existing.comment = data.comment or ""
+    else:
+        db.add(AppRating(user_id=user.id, score=data.score, comment=data.comment or ""))
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.get("/admin/ratings", response_model=List[RatingResponse])
+def admin_list_ratings(user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    ratings = db.query(AppRating).order_by(AppRating.created_at.desc()).all()
+    result = []
+    for r in ratings:
+        u = db.query(User).filter(User.id == r.user_id).first()
+        result.append(RatingResponse(
+            id=r.id,
+            user_id=r.user_id,
+            username=u.username if u else None,
+            score=r.score,
+            comment=r.comment,
+            created_at=r.created_at,
+        ))
+    return result
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
