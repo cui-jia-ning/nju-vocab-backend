@@ -104,6 +104,11 @@ def get_me(user: User = Depends(get_current_user)):
     return user
 
 
+@app.post("/refresh", response_model=Token)
+def refresh_token(user: User = Depends(get_current_user)):
+    return {"access_token": create_token({"sub": str(user.id)}), "token_type": "bearer"}
+
+
 @app.post("/words", response_model=WordResponse)
 def add_word(data: WordCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     word = db.query(Word).filter(Word.word == data.word).first()
