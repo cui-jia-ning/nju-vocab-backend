@@ -14,6 +14,7 @@ class User(Base):
     last_login = Column(DateTime)
     last_login_date = Column(Date)
     is_admin = Column(Boolean, default=False)
+    is_developer = Column(Boolean, default=False)
 
     word_progress = relationship("WordProgress", back_populates="user")
     login_logs = relationship("LoginLog", back_populates="user")

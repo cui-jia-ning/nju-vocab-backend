@@ -71,6 +71,12 @@ def get_admin_user(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def get_developer_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_developer:
+        raise HTTPException(status_code=403, detail="仅开发者可访问")
+    return user
+
+
 @app.post("/register", response_model=UserResponse)
 def register(data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == data.username).first():
@@ -259,7 +265,7 @@ def admin_batch_update(
 
 
 @app.get("/admin/stats", response_model=StatsResponse)
-def admin_get_stats(user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+def admin_get_stats(user: User = Depends(get_developer_user), db: Session = Depends(get_db)):
     today = date.today()
 
     total_users = db.query(User).count()
@@ -287,6 +293,30 @@ def admin_get_stats(user: User = Depends(get_admin_user), db: Session = Depends(
         total_reviews_today=total_reviews_today,
         words_due_today=words_due_today,
     )
+
+
+@app.get("/admin/logs")
+def admin_get_logs(
+    limit: int = 50,
+    user: User = Depends(get_developer_user),
+    db: Session = Depends(get_db),
+):
+    logs = (
+        db.query(LoginLog)
+        .order_by(LoginLog.login_at.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for log in logs:
+        u = db.query(User).filter(User.id == log.user_id).first()
+        result.append({
+            "id": log.id,
+            "user_id": log.user_id,
+            "username": u.username if u else "unknown",
+            "login_at": log.login_at.isoformat() if log.login_at else None,
+        })
+    return result
 
 
 @app.get("/review/today", response_model=List[ReviewItem])

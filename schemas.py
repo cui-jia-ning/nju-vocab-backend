@@ -19,6 +19,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: Optional[datetime]
     is_admin: bool = False
+    is_developer: bool = False
 
     class Config:
         from_attributes = True
