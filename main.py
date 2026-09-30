@@ -11,11 +11,12 @@ from typing import List, Optional
 
 from config import settings
 from database import engine, get_db, Base
-from models import User, Word, WordProgress, LoginLog, AppRating
+from models import User, Word, WordProgress, LoginLog, AppRating, Announcement
 from schemas import (
     UserCreate, UserLogin, UserResponse, Token,
     WordCreate, WordUpdate, WordResponse, ReviewItem, StatsResponse,
     RatingCreate, RatingResponse,
+    AnnouncementCreate, AnnouncementResponse,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -422,6 +423,48 @@ def admin_list_ratings(user: User = Depends(get_admin_user), db: Session = Depen
             created_at=r.created_at,
         ))
     return result
+
+
+# ================= 公告系统 =================
+
+
+@app.get("/announcements/latest")
+def get_latest_announcement(db: Session = Depends(get_db)):
+    """获取最新的有效公告"""
+    ann = db.query(Announcement).filter(Announcement.is_active == True).order_by(Announcement.created_at.desc()).first()
+    if not ann:
+        return {"announcement": None}
+    return {"announcement": {
+        "id": ann.id,
+        "title": ann.title,
+        "content": ann.content,
+        "type": ann.announcement_type,
+        "created_at": ann.created_at.isoformat(),
+    }}
+
+
+@app.post("/admin/announcements", response_model=AnnouncementResponse)
+def create_announcement(data: AnnouncementCreate, user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    ann = Announcement(title=data.title, content=data.content, announcement_type=data.announcement_type)
+    db.add(ann)
+    db.commit()
+    db.refresh(ann)
+    return ann
+
+
+@app.get("/admin/announcements", response_model=List[AnnouncementResponse])
+def list_announcements(user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    return db.query(Announcement).order_by(Announcement.created_at.desc()).all()
+
+
+@app.delete("/admin/announcements/{ann_id}")
+def delete_announcement(ann_id: int, user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    ann = db.query(Announcement).filter(Announcement.id == ann_id).first()
+    if not ann:
+        raise HTTPException(status_code=404, detail="公告不存在")
+    db.delete(ann)
+    db.commit()
+    return {"status": "ok"}
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

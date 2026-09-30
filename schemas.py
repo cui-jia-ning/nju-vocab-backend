@@ -92,3 +92,21 @@ class RatingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AnnouncementCreate(BaseModel):
+    title: str
+    content: str
+    announcement_type: str = "update"
+
+
+class AnnouncementResponse(BaseModel):
+    id: int
+    title: str
+    content: str
+    announcement_type: str
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
