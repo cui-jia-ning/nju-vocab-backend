@@ -27,6 +27,7 @@ class Word(Base):
     word = Column(String(100), unique=True, index=True)
     meaning = Column(String(500))
     level = Column(String(10), nullable=True)  # A, B, C
+    pos = Column(String(50), nullable=True)  # 词性：n. v. adj. adv. 等
     phonetic = Column(String(100), nullable=True)
     example = Column(String(500), nullable=True)
     example_zh = Column(String(500), nullable=True)

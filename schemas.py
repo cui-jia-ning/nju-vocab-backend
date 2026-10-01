@@ -34,6 +34,7 @@ class WordCreate(BaseModel):
     word: str
     meaning: str
     level: Optional[str] = None  # A, B, C
+    pos: Optional[str] = None
     phonetic: Optional[str] = None
     example: Optional[str] = None
     example_zh: Optional[str] = None
@@ -42,6 +43,7 @@ class WordCreate(BaseModel):
 class WordUpdate(BaseModel):
     meaning: Optional[str] = None
     level: Optional[str] = None
+    pos: Optional[str] = None
     phonetic: Optional[str] = None
     example: Optional[str] = None
     example_zh: Optional[str] = None
@@ -52,6 +54,7 @@ class WordResponse(BaseModel):
     word: str
     meaning: str
     level: Optional[str] = None
+    pos: Optional[str] = None
     phonetic: Optional[str] = None
     example: Optional[str] = None
     example_zh: Optional[str] = None
@@ -64,6 +67,7 @@ class ReviewItem(BaseModel):
     word_id: int
     word: str
     meaning: str
+    pos: Optional[str] = None
     review_count: int
     next_review_date: date
 

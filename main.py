@@ -124,6 +124,7 @@ def add_word(data: WordCreate, user: User = Depends(get_current_user), db: Sessi
             word=data.word,
             meaning=data.meaning,
             level=data.level,
+            pos=data.pos,
             phonetic=data.phonetic,
             example=data.example,
             example_zh=data.example_zh,
@@ -154,6 +155,7 @@ def add_words_batch(data: List[WordCreate], user: User = Depends(get_current_use
                 word=item.word,
                 meaning=item.meaning,
                 level=item.level,
+                pos=item.pos,
                 phonetic=item.phonetic,
                 example=item.example,
                 example_zh=item.example_zh,
@@ -341,6 +343,7 @@ def get_today_review(user: User = Depends(get_current_user), db: Session = Depen
                     word_id=word.id,
                     word=word.word,
                     meaning=word.meaning,
+                    pos=word.pos,
                     review_count=p.review_count,
                     next_review_date=p.next_review_date,
                 )
